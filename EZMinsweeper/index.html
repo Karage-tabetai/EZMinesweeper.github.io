@@ -1,0 +1,662 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>マインスイーパー</title>
+<style>
+:root{
+  --bg:#e8edef;--panel:#f7f9fa;--ink:#17262c;--muted:#566870;--line:#aebcc3;
+  --hid:#b4c3ca;--hid-hi:#d3dee3;--hid-lo:#8fa2ab;--rev:#f7f9fa;--accent:#0f766e;--accent-ink:#fff;--bad:#c2410c;
+  --n1:#1d4ed8;--n2:#15803d;--n3:#c2410c;--n4:#6d28d9;--n5:#9f1239;--n6:#0e7490;--n7:#17262c;--n8:#566870;
+  color-scheme:light dark;
+  box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0d1a1f;--panel:#14262d;--ink:#e3eef1;--muted:#8ea5ae;--line:#35505b;
+  --hid:#36525d;--hid-hi:#4a6a77;--hid-lo:#223941;--rev:#0d1a1f;--accent:#2dd4bf;--accent-ink:#06201c;--bad:#fb923c;
+  --n1:#7aa2ff;--n2:#4ade80;--n3:#fb923c;--n4:#c4a1ff;--n5:#fb7185;--n6:#22d3ee;--n7:#e3eef1;--n8:#8ea5ae;}}
+:root[data-theme="dark"]{
+  --bg:#0d1a1f;--panel:#14262d;--ink:#e3eef1;--muted:#8ea5ae;--line:#35505b;
+  --hid:#36525d;--hid-hi:#4a6a77;--hid-lo:#223941;--rev:#0d1a1f;--accent:#2dd4bf;--accent-ink:#06201c;--bad:#fb923c;
+  --n1:#7aa2ff;--n2:#4ade80;--n3:#fb923c;--n4:#c4a1ff;--n5:#fb7185;--n6:#22d3ee;--n7:#e3eef1;--n8:#8ea5ae;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 "Hiragino Sans","Yu Gothic UI","Noto Sans JP",system-ui,sans-serif}
+.app{display:flex;flex-direction:column;align-items:center;gap:14px;padding:20px 16px 32px}
+h1{margin:0;font-size:24px;letter-spacing:.02em}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.seg{display:flex;flex-wrap:wrap;justify-content:center;gap:6px}
+.seg button,#mode{border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:6px 16px}
+.seg button[aria-pressed="true"],#mode[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:700}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;max-width:100%}
+.bar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+.lcd{font-variant-numeric:tabular-nums;font-weight:700;font-size:22px;min-width:3.6em;text-align:center;padding:4px 10px;border-radius:8px;background:var(--rev);border:1px solid var(--line)}
+#face{width:44px;height:44px;font-size:24px;border-radius:10px;border:1px solid var(--line);background:var(--hid);box-shadow:inset 0 2px 0 var(--hid-hi),inset 0 -2px 0 var(--hid-lo)}
+.wrap{overflow-x:auto;max-width:100%;padding-bottom:2px}
+#grid{display:grid;gap:2px;width:max-content;margin:0 auto;touch-action:manipulation;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.c{width:var(--cs);height:var(--cs);display:grid;place-items:center;font-weight:700;font-size:calc(var(--cs)*.56);line-height:1;border-radius:4px;background:var(--hid);box-shadow:inset 0 2px 0 var(--hid-hi),inset 0 -2px 0 var(--hid-lo);cursor:pointer}
+@media (hover:hover){.c:not(.o):hover{background:var(--hid-hi)}}
+.c.o{background:var(--rev);box-shadow:inset 0 0 0 1px var(--line);cursor:default}
+.c.boom{background:var(--bad)}
+.c.wrong{background:var(--hid-lo)}
+.n1{color:var(--n1)}.n2{color:var(--n2)}.n3{color:var(--n3)}.n4{color:var(--n4)}
+.n5{color:var(--n5)}.n6{color:var(--n6)}.n7{color:var(--n7)}.n8{color:var(--n8)}
+.foot{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 12px;margin-top:12px;font-size:14px}
+#msg{order:-1;flex:1 1 100%;min-height:2.8em;display:flex;align-items:center;justify-content:center;text-align:center;font-weight:700}
+/* 文章の長さで枠の幅が変わらないよう、盤面の幅に合わせて折り返す */
+.foot,.panel,.cardinfo{width:0;min-width:100%}
+#best{color:var(--muted)}
+.help{margin:0;max-width:34em;font-size:13px;color:var(--muted)}
+.hearts{text-align:center;font-size:24px;letter-spacing:.15em;line-height:1.2;margin-bottom:10px}
+.hearts.hit{animation:shake .35s}
+@keyframes shake{25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+@media (prefers-reduced-motion:reduce){.hearts.hit{animation:none}}
+[hidden]{display:none!important}
+#game{display:flex;flex-direction:column;align-items:center;gap:14px;max-width:100%}
+.home{display:flex;flex-direction:column;align-items:center;gap:18px;text-align:center;padding:40px 0 20px;max-width:30em}
+.home h1{font-size:34px}
+.tag{margin:0;color:var(--muted)}
+.btn{border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:8px 20px}
+.btn.main{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:700}
+.btn.big{font-size:20px;padding:12px 44px}
+.hbest{margin:0;font-weight:700}
+.mdesc{margin:-8px 0 0;font-size:13px;color:var(--muted)}
+.lcd.urgent{color:var(--bad)}
+.rules{margin:0;padding:0;list-style:none;display:grid;gap:6px;font-size:14px;color:var(--muted);text-align:left}
+.top{display:flex;align-items:center;gap:14px}
+.stage{font-weight:700;font-size:18px}
+#face{display:grid;place-items:center;cursor:default}
+.panel{display:flex;flex-direction:column;align-items:center;gap:10px;margin-top:14px;padding:14px;border-radius:10px;background:var(--rev);border:1px solid var(--line);text-align:center}
+.pbtns{display:flex;flex-wrap:wrap;justify-content:center;gap:8px}
+.btn.icon{width:38px;height:38px;padding:0;display:grid;place-items:center;border-radius:50%}
+.top{order:-2}
+.help{order:-1;padding:10px 14px;background:var(--panel);border:1px solid var(--line);border-radius:10px}
+.stock{display:flex;gap:8px;justify-content:center;margin-bottom:10px}
+/* ===== カードのデザイン：レア度ごとに枠の色と光り方が変わる ===== */
+.r0{--rc:var(--muted);--rc2:var(--line)}
+.r1{--rc:var(--n1);--rc2:var(--n6)}
+.r2{--rc:var(--n4);--rc2:var(--n5)}
+/* ストックのスロット（小さいカード） */
+.sk{--rc:var(--line);--rc2:var(--line);position:relative;flex:1;max-width:116px;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;padding:7px 4px;border:0;border-radius:12px;color:var(--ink);font-size:12px;line-height:1.2;text-align:center;background:linear-gradient(160deg,var(--rc),var(--rc2));box-shadow:0 6px 14px -9px var(--rc);transition:transform .15s}
+.sk::before{content:"";position:absolute;inset:2px;border-radius:10px;background:var(--panel)}
+.sk>*{position:relative}
+.sk span{font-size:22px}
+.sk.empty{background:none;box-shadow:none;border:2px dashed var(--line);color:var(--muted);cursor:default}
+.sk.empty::before{display:none}
+.sk.sel{transform:translateY(-4px);box-shadow:0 0 0 3px var(--accent)}
+/* 選ぶときのカード（大きいカード） */
+.cardrow{flex-wrap:nowrap;gap:8px;width:100%}
+.fc{position:relative;flex:1 1 0;min-width:0;max-width:136px;min-height:176px;display:flex;flex-direction:column;gap:6px;padding:8px;border:0;border-radius:14px;color:var(--ink);text-align:center;font-size:12px;line-height:1.35;background:linear-gradient(160deg,var(--rc),var(--rc2));box-shadow:0 2px 0 rgb(0 0 0/.15),0 10px 20px -10px var(--rc);transition:transform .15s;animation:deal .4s both}
+.fc::before{content:"";position:absolute;inset:3px;border-radius:11px;background:var(--panel)}
+.fc>*{position:relative}
+.fc:nth-child(2){animation-delay:.08s}.fc:nth-child(3){animation-delay:.16s}
+.gem{align-self:flex-start;font-size:10px;font-weight:700;letter-spacing:.06em;padding:1px 8px;border-radius:999px;background:var(--rc);color:var(--panel)}
+.art{flex:1;min-height:56px;display:grid;place-items:center;border-radius:9px;font-size:clamp(30px,9vw,42px);background:radial-gradient(circle at 50% 40%,color-mix(in srgb,var(--rc) 35%,transparent),transparent 70%),var(--rev)}
+.nm{font-size:14px;padding:3px 4px;border-radius:6px;background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--rc) 22%,transparent),transparent)}
+.ds{font-size:11px;color:var(--muted);min-height:4.2em}
+.fc.r2::after{content:"";position:absolute;inset:0;border-radius:14px;pointer-events:none;z-index:2;mix-blend-mode:overlay;background:linear-gradient(115deg,transparent 35%,rgb(255 255 255/.4) 50%,transparent 65%);background-size:250% 100%;animation:shine 3s linear infinite}
+@media (hover:hover){.fc:hover{transform:translateY(-5px) rotate(-1deg)}}
+@keyframes deal{from{opacity:0;transform:translateY(16px) rotate(-4deg) scale(.95)}}
+@keyframes shine{from{background-position:150% 0}to{background-position:-100% 0}}
+@media (prefers-reduced-motion:reduce){.fc,.fc.r2::after{animation:none}.fc,.sk{transition:none}}
+.cardinfo{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px;margin-bottom:10px;font-size:14px}
+.offers{display:flex;flex-direction:column;align-items:center;gap:10px;width:100%}
+.ohint{margin:0;font-size:14px}
+.cardrow{display:flex;flex-wrap:wrap;justify-content:center;gap:10px}
+.c.hl{outline:3px solid var(--accent);outline-offset:-3px}
+</style>
+</head>
+<body>
+<main class="app">
+  <section id="home" class="home">
+    <h1>マインスイーパー</h1>
+    <p class="tag">ハートは3つ。ステージをクリアするたびに、盤面が広く、地雷が多くなっていきます。</p>
+    <div class="seg" role="group" aria-label="難しさ">
+      <button data-mode="easy" aria-pressed="false">簡単</button>
+      <button data-mode="normal" aria-pressed="true">普通</button>
+      <button data-mode="hard" aria-pressed="false">難しい</button>
+      <button data-mode="hardcore" aria-pressed="false">ハードコア</button>
+    </div>
+    <p class="mdesc" id="mdesc"></p>
+    <button class="btn main big" id="resume" hidden>続きから</button>
+    <button class="btn main big" id="start">スタート</button>
+    <p id="hbest" class="hbest"></p>
+    <ul class="rules">
+      <li>最初はステージ1から始まり、クリアするほど盤面が広く、地雷が増えていきます</li>
+      <li>地雷を踏むとハートが1つ減り、0になるとゲームオーバー</li>
+      <li>ハートは次のステージへ持ち越され、ステージをクリアするとハートが1つ回復します（上限まで）</li>
+      <li>数字マスを押すと、確定している地雷に旗を立て、安全なマスを開きます</li>
+      <li>ステージをクリアすると、スキルカードを1枚選べます（最大3枚まで持てます）</li>
+      <li>途中でホームに戻っても、ページを閉じても、続きから再開できます</li>
+      <li>ハードコア：制限時間150秒で、何ステージクリアできるかに挑戦。カード選択中は時間が止まり、ハートが0か時間切れで終了。中断中も時間は進みます</li>
+    </ul>
+  </section>
+  <div id="game" hidden>
+  <div class="top">
+    <button class="btn" id="homeBtn">中断してホームへ</button>
+    <div id="stage" class="stage"></div>
+    <button class="btn icon" id="info" aria-label="遊び方を表示" aria-expanded="false" aria-controls="help">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M12 11v5.5"/><circle cx="12" cy="7.6" r=".6" fill="currentColor"/></svg>
+    </button>
+  </div>
+  <section class="card">
+    <div class="hearts" id="hearts" role="status"></div>
+    <div class="stock" id="stock"></div>
+    <div class="cardinfo" id="cardinfo" hidden></div>
+    <div class="bar">
+      <div class="lcd" id="mines" aria-label="残りの地雷">010</div>
+      <div id="face" role="img" aria-label="状態">🙂</div>
+      <div class="lcd" id="time" aria-label="経過時間">000</div>
+    </div>
+    <div class="wrap"><div id="grid" role="grid" aria-label="盤面"></div></div>
+    <div class="foot">
+      <button id="mode" aria-pressed="false">旗モード：オフ</button>
+      <span id="msg" role="status"></span>
+      <span id="best"></span>
+    </div>
+    <div id="panel" class="panel" hidden>
+      <strong id="ptitle"></strong>
+      <div class="offers" id="offers"></div>
+      <div class="pbtns">
+        <button class="btn main" id="next">次のステージへ</button>
+        <button class="btn main" id="again">もう一度</button>
+        <button class="btn" id="toHome">ホームへ</button>
+      </div>
+    </div>
+  </section>
+  <p class="help" id="help" hidden>クリック／タップでマスを開き、右クリック／長押しで旗を立てます。開いた数字をクリックすると、その数字と、確定済みの地雷（自動で立てた旗や踏んだ地雷）だけで判断し、残りのマスがすべて地雷ならまとめて旗を立て、地雷がすべて見つかっていれば残りのマスをまとめて開きます。自分で立てた旗は判定に使いません。開いたマスが0のときは、普通にマスを開いたときと同じように周りへ連鎖して開きます。最初の1手は必ず安全です。体力はハート3つで、地雷を踏むとハートが1つ減り、0になるとゲームオーバーです（踏んだ地雷は開いたままになります）。</p>
+  </div>
+</main>
+<script>
+// モードごとの地雷の多さ：mul=地雷密度の倍率、cap=密度の上限（ここを変えると難易度を調整できる）
+const MODES={
+  easy:{name:'簡単',mul:1.0,cap:0.206,desc:'地雷が少なめ。まずはこちらから'},
+  normal:{name:'普通',mul:1.25,cap:0.24,desc:'地雷がやや多い。歯ごたえのある標準'},
+  hard:{name:'難しい',mul:1.5,cap:0.28,desc:'地雷がかなり多い。上級者向け'},
+  hardcore:{name:'ハードコア',mul:1.25,cap:0.24,timed:true,desc:'制限時間150秒。何ステージクリアできるかに挑戦（カード選択中は時間が止まります）'}
+};
+const isTimed=()=>MODES[mode].timed; // ハードコア（制限時間あり）かどうか
+let mode='normal',selMode='normal'; // mode: いま遊んでいるモード、selMode: ホーム画面で選んでいるモード
+// ステージごとの設定：進むほど盤面が広く、地雷が多くなる（ステージ12以降は30×16）。地雷の数はモードで変わる
+function stageConfig(n){
+  const w=Math.min(30,9+(n-1)*2),h=Math.min(16,9+(n-1));
+  const {mul,cap}=MODES[mode];
+  const d=Math.min(cap,(0.123+0.008*(n-1))*mul); // 地雷の密度
+  return {w,h,m:Math.round(w*h*d)};
+}
+let stage=1;
+const $=s=>document.querySelector(s);
+const grid=$('#grid');
+const HP=3; // 体力（ハートの数）
+const LIMIT=150; // ハードコアの制限時間（秒）
+let maxHp=HP,cards=[],sel=-1,target=-1,shield=false,won=false,usedBefore=0; // usedBefore: クリア済みのステージで使った秒数（ハードコア用）
+// ハート上限・持っているカード・選択中のカード・対象マス待ち・身代わり
+let W,H,M,mine,num,opened,flag,els,started,over,openCount,flagCount,hp,boomCount,sure,tick,t0,flagMode=false;
+
+// マス i の周囲8マスの番号を返す
+function neighbors(i){
+  const x=i%W,y=(i/W)|0,r=[];
+  for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
+    if(!dx&&!dy)continue;
+    const nx=x+dx,ny=y+dy;
+    if(nx>=0&&nx<W&&ny>=0&&ny<H)r.push(ny*W+nx);
+  }
+  return r;
+}
+
+function newGame(){
+  ({w:W,h:H,m:M}=stageConfig(stage));
+  clearInterval(tick);
+  const n=W*H;
+  mine=new Array(n).fill(false);num=new Array(n).fill(0);
+  opened=new Array(n).fill(false);flag=new Array(n).fill(false);sure=new Array(n).fill(false); // sure: 地雷と確定した旗
+  started=over=won=false;openCount=flagCount=boomCount=0; // 体力は次のステージへ持ち越す
+  $('#face').textContent='🙂';$('#msg').textContent='';
+  setTime(isTimed()?Math.ceil(LIMIT-usedBefore):0);setMines();isTimed()?showBest():saveBest(stage);showHearts();
+  $('#time').setAttribute('aria-label',isTimed()?'残り時間':'経過時間');$('#time').classList.toggle('urgent',isTimed()&&LIMIT-usedBefore<=30);
+  sel=target=-1;renderStock();$('#panel').hidden=true;$('#stage').textContent=`ステージ ${stage}（${MODES[mode].name}）`;
+  const cs=Math.max(22,Math.min(36,Math.floor((Math.min(innerWidth,1100)-64)/W)));
+  grid.style.setProperty('--cs',cs+'px');
+  grid.style.gridTemplateColumns=`repeat(${W},var(--cs))`;
+  grid.innerHTML='';els=[];
+  for(let i=0;i<n;i++){
+    const d=document.createElement('div');
+    d.className='c';d.dataset.i=i;
+    grid.appendChild(d);els.push(d);
+  }
+  saveGame(); // ステージの始まりも保存する
+}
+
+// 最初にクリックしたマスとその周囲を避けて、地雷をランダムに置く
+function place(first){
+  const ban=new Set([first,...neighbors(first)]);
+  const pool=[];
+  for(let i=0;i<W*H;i++)if(!ban.has(i))pool.push(i);
+  for(let k=0;k<M;k++){
+    const j=k+Math.floor(Math.random()*(pool.length-k));
+    [pool[k],pool[j]]=[pool[j],pool[k]];
+    mine[pool[k]]=true;
+  }
+  for(let i=0;i<W*H;i++)num[i]=neighbors(i).filter(j=>mine[j]).length;
+}
+
+// マスの見た目を状態に合わせて更新する
+function paint(i){
+  let cls='c',t='';
+  if(opened[i]){
+    cls+=' o';
+    if(mine[i]){cls+=' boom';t='💣'}
+    else if(num[i]){cls+=' n'+num[i];t=num[i]}
+  }else if(over&&mine[i]&&!flag[i]){cls+=' o';t='💣'}
+  else if(over&&flag[i]&&!mine[i]){cls+=' wrong';t='❌'}
+  else if(flag[i]){t='🚩'}
+  els[i].className=cls;els[i].textContent=t;
+}
+
+// マスを開く。地雷を踏んだら true を返す。0のマスは周囲を連鎖して開く
+function openCell(i,spread=true){
+  if(opened[i]||flag[i])return false;
+  if(mine[i]){
+    if(shield){ // 身代わり：地雷を踏んでもダメージを受けず、その地雷には旗が立つ
+      shield=false;flag[i]=true;sure[i]=true;flagCount++;
+      paint(i);setMines();showHearts();$('#msg').textContent='身代わりが地雷を防ぎました！';
+      return false;
+    }
+    opened[i]=true;paint(i);return true;
+  }
+  const st=[i];opened[i]=true;
+  while(st.length){
+    const c=st.pop();openCount++;paint(c);
+    if(spread&&num[c]===0)for(const j of neighbors(c))
+      if(!opened[j]&&!flag[j]&&!mine[j]){opened[j]=true;st.push(j)}
+  }
+  return false;
+}
+
+// 数字マス c の周りで、論理的に「安全」「地雷」と確定しているマスを探す。
+// 押した数字マス自身の数字と、確定済みの地雷だけで判断するので、必ず当たる
+function deduce(c){
+  const known=new Map(); // マス番号 -> true(地雷と確定) / false(安全と確定)
+  const area=new Set([c]); // 押した数字マスだけを使う（周りの別の数字は使わない）
+  for(const j of neighbors(c))if(sure[j])known.set(j,true); // 自動で立てた旗＝確定している地雷
+  // 数字マスごとに「未開マスの集合」と「その中の地雷数」を作る（踏んだ地雷は既知として引く）
+  const cons=[...area].map(k=>{
+    const nb=neighbors(k);
+    return {cells:new Set(nb.filter(j=>!opened[j])),n:num[k]-nb.filter(j=>opened[j]&&mine[j]).length};
+  });
+  let changed=true;
+  while(changed){
+    changed=false;
+    for(const k of cons)for(const j of [...k.cells])if(known.has(j)){k.cells.delete(j);if(known.get(j))k.n--}
+    // ルール1: 地雷数が0なら全部安全、未開マスの数と同じなら全部地雷
+    for(const k of cons){
+      if(!k.cells.size)continue;
+      if(k.n===0||k.n===k.cells.size){for(const j of k.cells)known.set(j,k.n>0);changed=true}
+    }
+    if(changed)continue;
+    // ルール2: Aの未開マスがBの未開マスの一部なら、差の部分の地雷数も決まる
+    for(const a of cons)for(const b of cons){
+      if(a===b||!a.cells.size||a.cells.size>=b.cells.size)continue;
+      if(![...a.cells].every(j=>b.cells.has(j)))continue;
+      const diff=[...b.cells].filter(j=>!a.cells.has(j)),dn=b.n-a.n;
+      if(dn===0||dn===diff.length){for(const j of diff)known.set(j,dn>0);changed=true}
+    }
+  }
+  const around=neighbors(c).filter(j=>!opened[j]);
+  return {
+    safe:around.filter(j=>known.get(j)===false&&!flag[j]),
+    mines:around.filter(j=>known.get(j)===true)
+  };
+}
+
+function reveal(i){
+  if(over||(!opened[i]&&flag[i])||(opened[i]&&mine[i]))return;
+  if(!started){
+    started=true;place(i);t0=Date.now();
+    startTimer();
+  }
+  let hits=0; // 今回踏んだ地雷の数
+  if(opened[i]){ // 数字マスをクリック：まとめて開く
+    if(neighbors(i).some(j=>!opened[j])){
+      const d=deduce(i); // 押した数字マスだけで確定できるマスを調べる
+      let nf=0;
+      for(const j of d.mines)if(!sure[j]){if(!flag[j])toggleFlag(j);sure[j]=true;nf++} // 地雷と確定したマスには旗を立てる
+      if(nf)$('#msg').textContent=`地雷が確定した${nf}マスに旗を立てました`;
+      else if(!d.safe.length)$('#msg').textContent='確定しているマスはまだありません';
+      for(const j of d.safe)if(openCell(j))hits++; // 0のマスが開いたら、通常どおり周りへ連鎖して開く
+    }
+  }else if(openCell(i))hits++;
+  if(hits){ // 地雷を踏むとハートが減る。0になったらゲームオーバー
+    hp-=hits;boomCount+=hits;
+    showHearts(true);setMines();
+    if(hp<=0)return end(false);
+    $('#msg').textContent=`ダメージ！ 残りハート${hp}`;
+  }
+  if(openCount===W*H-M)end(true);
+}
+
+function toggleFlag(i){
+  if(over||opened[i])return;
+  flag[i]=!flag[i];flagCount+=flag[i]?1:-1;
+  if(!flag[i])sure[i]=false; // 自分で旗を外したら確定扱いをやめる
+  paint(i);setMines();saveGame();
+}
+
+function end(win,reason){
+  over=true;won=win;clearInterval(tick);
+  if(win&&isTimed())usedBefore+=(Date.now()-t0)/1000; // クリアしたステージで使った時間を足す（カード選択中は進めない）
+  if(win)for(let i=0;i<W*H;i++)if(mine[i]&&!flag[i]&&!opened[i]){flag[i]=true;flagCount++}
+  for(let i=0;i<W*H;i++)paint(i);
+  setMines();
+  $('#face').textContent=win?'😎':'😵';
+  if(win){
+    const s=Math.floor((Date.now()-t0)/1000);
+    const heal=hp<maxHp; // クリアするとハートが1つ回復する（最大HP個まで）
+    if(heal){hp++;showHearts()}
+    setTime(isTimed()?Math.max(0,Math.ceil(LIMIT-usedBefore)):s);$('#msg').textContent=`クリア！ ${s}秒`;showPanel(`ステージ${stage}クリア！`+(heal?' ハートが1つ回復しました':''),true);saveGame();
+  }else{
+    const cleared=stage-1;
+    $('#msg').textContent=reason==='time'?'時間切れです':'ハートがなくなりました';
+    if(isTimed()){ // ハートコア：クリアしたステージ数が記録になる
+      const rec=cleared>getBest();saveBest(cleared);
+      showPanel(`ハードコア終了！ ${cleared}ステージクリア`+(rec?'（記録更新！）':''),false);
+    }else showPanel(`ゲームオーバー（ステージ${stage}で終了）`,false);
+    clearSave();
+  }
+}
+
+function setTime(s){$('#time').textContent=String(Math.min(s,999)).padStart(3,'0')}
+// ハート表示を更新する（ダメージを受けたときは揺らす）
+function showHearts(hit){
+  const h=$('#hearts'),n=Math.max(hp,0);
+  h.textContent='❤️'.repeat(n)+'🤍'.repeat(maxHp-n)+(shield?' 🛡️':'');
+  h.setAttribute('aria-label',`体力 ${n}/${maxHp}`);
+  h.classList.remove('hit');
+  if(hit){void h.offsetWidth;h.classList.add('hit')}
+}
+function setMines(){
+  const v=M-flagCount-boomCount;
+  $('#mines').textContent=v<0?'-'+String(-v).padStart(2,'0'):String(v).padStart(3,'0');
+}
+
+// 最高ステージはこのブラウザ内にだけ保存される
+const key=m=>'minesweeper-best-stage'+(m==='easy'?'':'-'+m); // 簡単は以前の記録をそのまま引き継ぐ
+function getBest(m=mode){try{return +localStorage.getItem(key(m))||0}catch(e){return 0}}
+function saveBest(s){
+  if(s>getBest()){try{localStorage.setItem(key(mode),s)}catch(e){}}
+  showBest();
+}
+const bestText=(m,b)=>MODES[m].timed?`${b}ステージクリア`:`ステージ${b}`; // ハードコアは「クリアしたステージ数」が記録
+function showBest(){
+  const b=getBest(),hb=getBest(selMode);
+  $('#best').textContent=b?`最高 ${bestText(mode,b)}`:'';
+  $('#hbest').textContent=hb?`最高記録（${MODES[selMode].name}）：${bestText(selMode,hb)}`:'まだ記録がありません';
+}
+
+// 操作：クリック／右クリック／長押し
+let lp=null,lpFired=false;
+const cellOf=e=>{const c=e.target.closest('.c');return c?+c.dataset.i:-1};
+grid.addEventListener('pointerdown',e=>{
+  const i=cellOf(e);lpFired=false;
+  if(i<0||e.pointerType!=='touch')return;
+  lp=setTimeout(()=>{lpFired=true;toggleFlag(i);if(navigator.vibrate)navigator.vibrate(15)},420);
+});
+['pointerup','pointerleave','pointercancel'].forEach(t=>grid.addEventListener(t,()=>clearTimeout(lp)));
+grid.addEventListener('click',e=>{
+  if(lpFired){lpFired=false;return}
+  const i=cellOf(e);if(i<0)return;
+  if(target>=0)return useAt(i); // カードの対象マスを選んでいるとき
+  flagMode&&!opened[i]?toggleFlag(i):reveal(i);
+  saveGame(); // 操作のたびに自動で保存する
+});
+grid.addEventListener('contextmenu',e=>{
+  e.preventDefault();
+  if(lpFired)return;
+  const i=cellOf(e);if(i>=0)toggleFlag(i);
+});
+
+$('#start').addEventListener('click',()=>{
+  if(loadSave()&&!confirmNew){ // 保存があるときは、誤操作防止に2回押して初めて捨てる
+    confirmNew=true;$('#start').textContent='記録を捨てて最初から（もう一度押す）';return;
+  }
+  startRun();
+});
+$('#resume').addEventListener('click',resumeGame);
+$('#again').addEventListener('click',startRun);
+$('#next').addEventListener('click',()=>{stage++;newGame()});
+$('#toHome').addEventListener('click',()=>showScreen('home'));
+$('#homeBtn').addEventListener('click',()=>{saveGame();showScreen('home')});
+$('#info').addEventListener('click',()=>{ // 遊び方の表示・非表示を切り替える
+  const h=$('#help');h.hidden=!h.hidden;
+  $('#info').setAttribute('aria-expanded',!h.hidden);
+});
+$('#mode').addEventListener('click',e=>{
+  flagMode=!flagMode;
+  e.currentTarget.setAttribute('aria-pressed',flagMode);
+  e.currentTarget.textContent='旗モード：'+(flagMode?'オン':'オフ');
+});
+// ===== スキルカード =====
+// r: レア度(0=コモン,1=レア,2=エピック)、t: マスを選んで使うカードの範囲（半径）
+const RARITY=['コモン','レア','エピック'];
+const SKILLS=[
+  {id:'heal',n:'応急手当',r:0,icon:'🩹',d:'ハートを1つ回復する'},
+  {id:'peek',n:'小さな探知',r:0,t:1,icon:'📡',d:'押したマスの周り（半径1）の地雷に旗を立てる'},
+  {id:'count',n:'数えるだけ',r:0,t:2,icon:'🔢',d:'押したマスの周り（半径2）の地雷の数を調べる'},
+  {id:'peek',n:'大きな探知',r:1,t:2,icon:'🛰️',d:'押したマスの周り（半径2）の地雷に旗を立てる'},
+  {id:'shield',n:'身代わり',r:1,icon:'🛡️',d:'次に踏む地雷を1回無効にする'},
+  {id:'safe',n:'安全地帯',r:1,icon:'🍀',d:'安全なマスを1つ開く'},
+  {id:'maxhp',n:'拡張ハート',r:2,icon:'💖',d:'ハートの上限が+1され、1つ回復する'}
+];
+const say=t=>{$('#msg').textContent=t};
+const afterOpen=()=>{if(!over&&openCount===W*H-M)end(true)};
+
+// ステージクリア後に出すカードを3枚決める。ステージが進むほどレア・エピックが出やすくなり、5ステージごとにレア以上が1枚確定する
+function rollOffer(){
+  const w=[Math.max(30,70-4*(stage-1)),25+2*(stage-1),Math.min(15,5+(stage-1))]; // コモン・レア・エピックの重み
+  const out=[];
+  while(out.length<3){
+    const ww=(out.length===0&&stage%5===0)?[0,w[1],w[2]]:w;
+    let t=Math.random()*(ww[0]+ww[1]+ww[2]),r=0;
+    while(r<2&&t>=ww[r]){t-=ww[r];r++}
+    const pool=SKILLS.filter(s=>s.r===r&&!out.includes(s)); // 同じカードは重複させない
+    if(pool.length)out.push(pool[Math.random()*pool.length|0]);
+  }
+  return out;
+}
+
+// ストック（持っているカード）の表示
+function renderStock(){
+  const box=$('#stock');box.textContent='';
+  for(let k=0;k<3;k++){
+    const c=cards[k],b=document.createElement('button');
+    b.className='sk'+(c?' r'+c.r:' empty')+(k===sel?' sel':'');
+    b.disabled=!c;
+    if(c){
+      const ic=document.createElement('span');ic.textContent=c.icon;
+      const nm=document.createElement('b');nm.textContent=c.n;
+      b.append(ic,nm);b.onclick=()=>{sel=sel===k?-1:k;target=-1;renderStock()};
+    }else b.textContent='空き';
+    box.appendChild(b);
+  }
+  const info=$('#cardinfo'),c=cards[sel];
+  info.hidden=!c;info.textContent='';
+  if(c){
+    const t=document.createElement('span');
+    t.textContent=target>=0?`${c.n}：対象のマスを押してください`:`${c.n}（${RARITY[c.r]}）：${c.d}`;
+    const u=document.createElement('button');u.className='btn main';
+    u.textContent=target>=0?'やめる':'使う';
+    u.onclick=()=>{if(target>=0){target=-1;renderStock()}else useCard(sel)};
+    info.append(t,u);
+  }
+}
+function consume(k){cards.splice(k,1);sel=target=-1;renderStock();saveGame()}
+
+// カードを使う。マスを選ぶカードは、対象マス待ちになる
+function useCard(k){
+  const c=cards[k];
+  if(!c||over)return;
+  if(c.t){
+    if(!started)return say('最初のマスを開いてから使えます');
+    target=k;return renderStock();
+  }
+  if(c.id==='heal'){
+    if(hp>=maxHp)return say('ハートは満タンです');
+    hp++;showHearts();say('ハートを1つ回復しました');
+  }else if(c.id==='maxhp'){
+    if(maxHp>=6)return say('ハートの上限は6つまでです');
+    maxHp++;hp++;showHearts();say('ハートの上限が増えました');
+  }else if(c.id==='shield'){
+    if(shield)return say('すでに身代わりが有効です');
+    shield=true;showHearts();say('次に踏む地雷を1回防ぎます');
+  }else if(c.id==='safe'){
+    if(!started)return say('最初のマスを開いてから使えます');
+    const cand=[];
+    for(let i=0;i<W*H;i++)if(!opened[i]&&!mine[i]&&!flag[i])cand.push(i);
+    const edge=cand.filter(i=>neighbors(i).some(j=>opened[j])); // 開いたマスに接しているマスを優先
+    const pool=edge.length?edge:cand;
+    if(!pool.length)return say('開けるマスがありません');
+    openCell(pool[Math.random()*pool.length|0]);say('安全なマスを開きました');
+  }
+  consume(k);afterOpen();
+}
+
+// 選んだマス i を中心に、探知系カードの効果を出す
+function useAt(i){
+  const c=cards[target];
+  if(!c||over)return;
+  const r=c.t,x=i%W,y=(i/W)|0,area=[];
+  for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){
+    const nx=x+dx,ny=y+dy;
+    if(nx>=0&&nx<W&&ny>=0&&ny<H)area.push(ny*W+nx);
+  }
+  area.forEach(j=>{els[j].classList.add('hl');setTimeout(()=>els[j].classList.remove('hl'),1800)});
+  const ms=area.filter(j=>mine[j]);
+  if(c.id==='count')say(`半径${r}の範囲に地雷は${ms.length}個あります`);
+  else{
+    let n=0;
+    for(const j of ms)if(!opened[j]&&!sure[j]){if(!flag[j])toggleFlag(j);sure[j]=true;n++}
+    say(n?`地雷${n}個に旗を立てました`:'新しく見つかる地雷はありませんでした');
+  }
+  consume(target);
+}
+
+// ===== クリア後のカード選択 =====
+let offer=[],swapFor=null;
+function cardBtn(c,fn){
+  const b=document.createElement('button');b.className='fc r'+c.r;
+  const mk=(tag,cls,text)=>{const e=document.createElement(tag);e.className=cls;e.textContent=text;return e};
+  // レア度バッジ・イラスト欄（絵文字）・名前・説明の順に並べる
+  b.append(mk('span','gem',RARITY[c.r]),mk('span','art',c.icon),mk('b','nm',c.n),mk('span','ds',c.d));
+  b.onclick=fn;return b;
+}
+function cardRow(list,pick){
+  const row=document.createElement('div');row.className='cardrow';
+  list.forEach((c,k)=>row.appendChild(cardBtn(c,()=>pick(c,k))));
+  return row;
+}
+function startOffer(list){offer=list||rollOffer();swapFor=null;renderOffer()}
+function renderOffer(){
+  const box=$('#offers');box.textContent='';
+  const hint=document.createElement('p');hint.className='ohint';
+  const skip=document.createElement('button');skip.className='btn';
+  if(swapFor){ // ストックがいっぱい：入れ替えるカードを選ぶ
+    hint.textContent=`「${swapFor.n}」と入れ替えるカードを選んでください`;
+    skip.textContent='入れ替えない';skip.onclick=()=>{swapFor=null;renderOffer()};
+    box.append(hint,cardRow(cards,(c,k)=>{cards[k]=swapFor;finishOffer()}),skip);
+  }else{
+    hint.textContent=cards.length<3?'カードを1枚選べます':'ストックがいっぱいです。選ぶと入れ替えになります';
+    skip.textContent='選ばない';skip.onclick=finishOffer;
+    box.append(hint,cardRow(offer,c=>{
+      if(cards.length<3){cards.push(c);finishOffer()}else{swapFor=c;renderOffer()}
+    }),skip);
+  }
+}
+function finishOffer(){offer=[];swapFor=null;$('#offers').textContent='';renderStock();$('#next').hidden=false;saveGame()}
+
+// ===== 中断・再開（セーブ）=====
+const SAVE_KEY='minesweeper-save';
+let confirmNew=false;
+const loadSave=()=>{try{return JSON.parse(localStorage.getItem(SAVE_KEY))}catch(e){return null}};
+const clearSave=()=>{try{localStorage.removeItem(SAVE_KEY)}catch(e){}};
+// いまの状態を丸ごと保存する（操作のたびに自動で呼ばれる）
+function saveGame(){
+  if(!els||(over&&!won))return; // 盤面がないとき、ゲームオーバーのときは保存しない
+  const data={mode,stage,hp,maxHp,shield,started,over,won,openCount,flagCount,boomCount,
+    elapsed:+$('#time').textContent,used:usedBefore,sec:started&&!over?(Date.now()-t0)/1000:0,t0,
+    cards:cards.map(c=>SKILLS.indexOf(c)),offer:offer.map(c=>SKILLS.indexOf(c)),
+    mine,num,opened,flag,sure};
+  try{localStorage.setItem(SAVE_KEY,JSON.stringify(data))}catch(e){}
+}
+// タイマーの表示を更新する。ハードコアでは「残り時間」を数え、ゼロになったら終了
+function tickTime(){
+  const sec=(Date.now()-t0)/1000;
+  if(!isTimed()){setTime(Math.floor(sec));return}
+  const left=Math.max(0,Math.ceil(LIMIT-usedBefore-sec));
+  setTime(left);$('#time').classList.toggle('urgent',left<=30);
+  if(left<=0&&!over)end(false,'time');
+}
+function startTimer(){clearInterval(tick);tickTime();tick=setInterval(tickTime,250)}
+// 保存した状態から再開する
+function resumeGame(){
+  const d=loadSave();if(!d)return;
+  mode=d.mode||'easy';usedBefore=d.used||0;stage=d.stage;hp=d.hp;maxHp=d.maxHp;shield=d.shield;cards=d.cards.map(k=>SKILLS[k]);
+  showScreen('game');newGame(); // 盤面を作ってから、保存した内容で上書きする
+  mine=d.mine;num=d.num;opened=d.opened;flag=d.flag;sure=d.sure;
+  started=d.started;over=d.over;won=d.won;openCount=d.openCount;flagCount=d.flagCount;boomCount=d.boomCount;
+  for(let i=0;i<W*H;i++)paint(i);
+  setMines();showHearts();setTime(d.elapsed);
+  if(over){ // クリア済み：カード選択の続きから
+    $('#face').textContent='😎';say(`クリア！ ${d.elapsed}秒`);
+    const list=(d.offer||[]).map(k=>SKILLS[k]);
+    showPanel(`ステージ${stage}クリア！`,true,list);
+    if(!list.length)finishOffer();
+  }else if(started){
+    // ハードコアは中断中も時間が進む。それ以外は中断した時点から再開する
+    t0=isTimed()&&d.t0?d.t0:Date.now()-(d.sec!=null?d.sec:d.elapsed)*1000;
+    startTimer();
+  }
+}
+// ホーム画面のボタン表示：保存があるときは「続きから」を出す
+function showResume(){
+  const d=loadSave();confirmNew=false;
+  $('#resume').hidden=!d;
+  if(d)$('#resume').textContent=`続きから（${MODES[d.mode||'easy'].name}・ステージ${d.stage}）`;
+  $('#start').textContent=d?'はじめから':'スタート';
+  $('#start').classList.toggle('main',!d); // 続きがあるときは「続きから」を目立たせる
+}
+// ホーム画面のモード選択（選んだ内容はブラウザに覚えておく）
+try{const m=localStorage.getItem('minesweeper-mode');if(MODES[m])selMode=m}catch(e){}
+function renderModeButtons(){
+  document.querySelectorAll('.seg button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.mode===selMode));
+  $('#mdesc').textContent=MODES[selMode].desc;
+}
+document.querySelectorAll('.seg button').forEach(b=>b.addEventListener('click',()=>{
+  selMode=b.dataset.mode;
+  try{localStorage.setItem('minesweeper-mode',selMode)}catch(e){}
+  renderModeButtons();showBest();
+}));
+addEventListener('pagehide',saveGame); // ページを閉じるときにも保存する
+
+// 画面の切り替え：ホーム／ゲーム
+function showScreen(name){
+  $('#home').hidden=name!=='home';$('#game').hidden=name!=='game';
+  if(name==='home'){clearInterval(tick);showBest();showResume();renderModeButtons()}
+}
+// 新しい挑戦を始める：ステージ1・ハート満タン
+function startRun(){mode=selMode;stage=1;usedBefore=0;hp=maxHp=HP;cards=[];shield=false;showScreen('game');newGame()}
+// クリア／ゲームオーバーの表示
+function showPanel(title,cleared,list){
+  $('#ptitle').textContent=title;
+  $('#next').hidden=true;$('#again').hidden=cleared; // 「次へ」はカードを選んでから表示する
+  $('#offers').textContent='';
+  $('#panel').hidden=false;
+  if(cleared)startOffer(list);
+}
+
+showScreen('home');
+</script>
+</body>
+</html>
